@@ -53,8 +53,9 @@ signed long temp;
 int number=0;
 
 
-DDRD.2=1;
-RELAY_1_ON;
+DDRD.2=DDRD.3=1;
+RELAY_1_OFF;
+RELAY_2_OFF;
 
 UCSR0B=(1<<TXEN0);
 UCSR0C=(1<<UCSZ01) | (1<<UCSZ00);
@@ -65,12 +66,15 @@ ADMUX=ADC_VREF_TYPE;
 ADCSRA=(1<<ADEN) | (0<<ADSC) | (1<<ADATE) | (0<<ADIF) | (0<<ADIE) | (1<<ADPS2) | (0<<ADPS1) | (0<<ADPS0);
 ADCSRB=(0<<ADTS2) | (0<<ADTS1) | (0<<ADTS0);
 
-//detect how many DS18B20 devices are connected to the 1 Wire bus
+//detect devices are connected to the 1 Wire bus
   devices=w1_search(0xf0,rom_code);
   if (devices) printf("Temp sensor detected");
-
-/* configure each DS18B20 device for 12 bit temperature measurement resolution */  
+  else         printf("Sensor not find");
+                               
 ds18b20_init(&rom_code[0],20,30,DS18B20_12BIT_RES);
+
+RELAY_1_ON;
+RELAY_2_ON;
 
  while (1){  
  int i;
@@ -82,6 +86,11 @@ ds18b20_init(&rom_code[0],20,30,DS18B20_12BIT_RES);
  adc += read_adc(0);
  }
  adc/=10000;
- printf("1.Numb 2.Temp 3.Visc %u %u,%u %u", number, temp/10, temp%10, adc);
+ printf("1)Numb 2)Temp 3)Visc : %u %u,%u %u", number, temp/10, temp%10, adc);
+   if ((temp > 900) || (adc > 1000)) {
+    RELAY_1_OFF;
+    RELAY_2_OFF;
+    printf("End of test");
+   }
  }
 }
