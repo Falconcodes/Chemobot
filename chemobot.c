@@ -23,6 +23,12 @@
 #define RELAY_1_OFF PORTD.2=1
 #define RELAY_2_ON  PORTD.3=0
 #define RELAY_2_OFF PORTD.3=1
+#define RELAY_1_DDR DDRD.2
+#define RELAY_2_DDR DDRD.3
+#define BEEP_GND_PORT PORTD.5
+#define BEEP_GND_DDR DDRD.5
+#define BEEP PORTD.6
+#define BEEP_DDR DDRD.5=DDRD.6
 
 /* maximum number of DS18B20 connected to the 1 Wire bus */
 #define MAX_DEVICES 1
@@ -52,10 +58,10 @@ unsigned char devices;
 signed long temp;
 int number=0;
 
-
-DDRD.2=DDRD.3=1;
 RELAY_1_OFF;
 RELAY_2_OFF;
+
+RELAY_1_DDR=RELAY_2_DDR=BEEP_DDR=1;
 
 UCSR0B=(1<<TXEN0);
 UCSR0C=(1<<UCSZ01) | (1<<UCSZ00);
@@ -78,6 +84,7 @@ RELAY_2_ON;
 
  while (1){  
  int i;
+ char count;
  
  number++;
  temp = 10 * ds18b20_temperature(&rom_code[0]);
@@ -86,11 +93,23 @@ RELAY_2_ON;
  adc += read_adc(0);
  }
  adc/=10000;
- printf("1)Numb 2)Temp 3)Visc : %u %u,%u %u", number, temp/10, temp%10, adc);
-   if ((temp > 900) || (adc > 1000)) {
-    RELAY_1_OFF;
-    RELAY_2_OFF;
+ 
+     if(adc > 400) {
+     count++;
+      if(count == 30){
+      BEEP=1;
+      delay_ms(1000);
+      BEEP=0;
+      count=0;
+      }
+     }
+ printf("1)Numb 2)Temp 3)Visc :   %2u    %u,%u    %u", number, temp/10, temp%10, adc);
+   if ((temp > 800) || (adc > 1000)) {
+    //RELAY_1_OFF;
+    //RELAY_2_OFF;
     printf("End of test");
+    BEEP=1;
+    while(1);
    }
  }
 }
