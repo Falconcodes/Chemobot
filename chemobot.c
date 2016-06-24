@@ -36,6 +36,8 @@
 /* DS18B20 devices ROM code storage area */
 unsigned char rom_code[9];
 
+unsigned int count;
+
 unsigned long adc;
 
 // Read the AD conversion result
@@ -75,41 +77,58 @@ ADCSRB=(0<<ADTS2) | (0<<ADTS1) | (0<<ADTS0);
 //detect devices are connected to the 1 Wire bus
   devices=w1_search(0xf0,rom_code);
   if (devices) printf("Temp sensor detected");
-  else         printf("Sensor not find");
+  else         printf("Sensor not found");
                                
 ds18b20_init(&rom_code[0],20,30,DS18B20_12BIT_RES);
 
 RELAY_1_ON;
 RELAY_2_ON;
+BEEP=1;
+delay_ms(1000);
+BEEP=0;
 
  while (1){  
  int i;
- char count;
  
+ printf("Heating started...");
+ 
+ while ((temp = ds18b20_temperature(&rom_code[0])) < 50){ //ждем, пока не нагреется до 30, затем начинаем снимать данные
+  if (temp > 45) printf("Sample Temp = 45.0 C");
+  if (temp > 40) printf("Sample Temp = 40.0 C");
+  if (temp > 35) printf("Sample Temp = 35.0 C");
+  if (temp > 30) printf("Sample Temp = 30.0 C");
+  if (temp > 25) printf("Sample Temp = 25.0 C");
+ }
  number++;
  temp = 10 * ds18b20_temperature(&rom_code[0]);
  adc=0;
- for (i=0; i<10000; i++){
+ for (i=0; i<50000; i++){
  adc += read_adc(0);
  }
- adc/=10000;
+ adc/=50000;
  
-     if(adc > 400) {
+     if((adc > 700) || (temp > 800)) {
      count++;
-      if(count == 30){
+      if(count == 10){
       BEEP=1;
-      delay_ms(1000);
+      delay_ms(200);
       BEEP=0;
       count=0;
       }
      }
  printf("1)Numb 2)Temp 3)Visc :   %2u    %u,%u    %u", number, temp/10, temp%10, adc);
-   if ((temp > 800) || (adc > 1000)) {
+   if ((temp > 900) || (adc > 1020)) {
     //RELAY_1_OFF;
     //RELAY_2_OFF;
-    printf("End of test");
-    BEEP=1;
-    while(1);
-   }
+    delay_ms(1000);
+    if (temp > 900) printf("1)Numb 2)Temp 3)Visc :   %2u    00    %u", number, adc);
+    if (adc > 1020) printf("1)Numb 2)Temp 3)Visc :   %2u    %u,%u    00", number, temp/10, temp%10);
+    while(1){
+        BEEP=1;
+        delay_ms(1000);
+        BEEP=0;
+        delay_ms(30000);
+    }
+   } 
  }
 }
