@@ -18,6 +18,7 @@
 
 // Voltage Reference: Int., cap. on AREF
 #define ADC_VREF_TYPE ((1<<REFS1) | (1<<REFS0) | (0<<ADLAR))
+#define ADC_SAMPLES 40000 //число измерения ADC для усреднения
 
 #define RELAY_1_ON  PORTD.2=0
 #define RELAY_1_OFF PORTD.2=1
@@ -54,6 +55,29 @@ ADCSRA|=(1<<ADIF);
 return ADCW;
 }
 
+float ds18b20_temperature(unsigned char *addr)
+{
+  if (ds18b20_read_spd(addr)==0) return -9999;
+  if (ds18b20_select(addr)==0) return -9999;
+  w1_write(0x44);
+  delay_ms(800);
+  if (ds18b20_read_spd(addr)==0) return -9999;
+  w1_init();
+  return (*((int *) &__ds18b20_scratch_pad.temp_lsb) & ((int) 0xFFFF))*0.0625;
+}
+
+float ask_temp(unsigned char *addr)
+{
+  if (ds18b20_read_spd(addr)==0) return -9999;
+  w1_init();
+  return (*((int *) &__ds18b20_scratch_pad.temp_lsb) & ((int) 0xFFFF))*0.0625;
+
+  if (ds18b20_read_spd(addr)==0) return -9999;
+  if (ds18b20_select(addr)==0) return -9999;
+  w1_write(0x44);
+  //NEED DELAY min. 800 ms HERE!!!
+}
+
 void main(void){
 
 unsigned char devices;
@@ -87,25 +111,26 @@ BEEP=1;
 delay_ms(1000);
 BEEP=0;
 
+ask_temp(&rom_code[0]); //получаем первое значение температуры, чтобы первый запрос в цикле while(1) вернул что-то адекватное
+
  while (1){  
  int i;
  
- printf("Heating started...");
+ printf("Start with sample...");
  
  while ((temp = ds18b20_temperature(&rom_code[0])) < 50){ //ждем, пока не нагреется до 30, затем начинаем снимать данные
+  //выводим на монитор прогресс нагрева
   if (temp > 45) printf("Sample Temp = 45.0 C");
-  if (temp > 40) printf("Sample Temp = 40.0 C");
-  if (temp > 35) printf("Sample Temp = 35.0 C");
-  if (temp > 30) printf("Sample Temp = 30.0 C");
-  if (temp > 25) printf("Sample Temp = 25.0 C");
+  else if (temp > 40) printf("Sample Temp = 40.0 C");
+  else if (temp > 35) printf("Sample Temp = 35.0 C");
+  else if (temp > 30) printf("Sample Temp = 30.0 C");
+  else if (temp > 25) printf("Sample Temp = 25.0 C");
  }
  number++;
- temp = 10 * ds18b20_temperature(&rom_code[0]);
+ temp = 10 * ask_temp(&rom_code[0]);
  adc=0;
- for (i=0; i<50000; i++){
- adc += read_adc(0);
- }
- adc/=50000;
+ for (i=0; i<ADC_SAMPLES; i++){adc += read_adc(0); delay_us(20);}
+ adc/=ADC_SAMPLES;
  
      if((adc > 700) || (temp > 800)) {
      count++;
