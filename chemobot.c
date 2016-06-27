@@ -18,7 +18,7 @@
 
 // Voltage Reference: Int., cap. on AREF
 #define ADC_VREF_TYPE ((1<<REFS1) | (1<<REFS0) | (0<<ADLAR))
-#define ADC_SAMPLES 40000 //число измерения ADC для усреднения
+#define ADC_SAMPLES 60000 //число измерений ADC для усреднения
 
 #define RELAY_1_ON  PORTD.2=0
 #define RELAY_1_OFF PORTD.2=1
@@ -68,14 +68,16 @@ float ds18b20_temperature(unsigned char *addr)
 
 float ask_temp(unsigned char *addr)
 {
+  float temp;
   if (ds18b20_read_spd(addr)==0) return -9999;
   w1_init();
-  return (*((int *) &__ds18b20_scratch_pad.temp_lsb) & ((int) 0xFFFF))*0.0625;
-
+  temp = (*((int *) &__ds18b20_scratch_pad.temp_lsb) & ((int) 0xFFFF))*0.0625;
+  
   if (ds18b20_read_spd(addr)==0) return -9999;
   if (ds18b20_select(addr)==0) return -9999;
   w1_write(0x44);
-  //NEED DELAY min. 800 ms HERE!!!
+  return temp;
+  //NEED DELAY min. 800 ms AFTER THIS FUNCTION WAS USED!!!
 }
 
 void main(void){
@@ -112,24 +114,33 @@ delay_ms(1000);
 BEEP=0;
 
 ask_temp(&rom_code[0]); //получаем первое значение температуры, чтобы первый запрос в цикле while(1) вернул что-то адекватное
-
- while (1){  
- int i;
  
  printf("Start with sample...");
  
- while ((temp = ds18b20_temperature(&rom_code[0])) < 50){ //ждем, пока не нагреется до 30, затем начинаем снимать данные
-  //выводим на монитор прогресс нагрева
-  if (temp > 45) printf("Sample Temp = 45.0 C");
-  else if (temp > 40) printf("Sample Temp = 40.0 C");
-  else if (temp > 35) printf("Sample Temp = 35.0 C");
-  else if (temp > 30) printf("Sample Temp = 30.0 C");
-  else if (temp > 25) printf("Sample Temp = 25.0 C");
- }
+ delay_ms(500);
+ 
+ //выводим на монитор прогресс нагрева 
+ while ((temp = ds18b20_temperature(&rom_code[0])) < 25); 
+ printf("Sample Temp = 25.0 C");
+ while ((temp = ds18b20_temperature(&rom_code[0])) < 30); 
+ printf("Sample Temp = 30.0 C");
+ while ((temp = ds18b20_temperature(&rom_code[0])) < 35); 
+ printf("Sample Temp = 35.0 C");
+ while ((temp = ds18b20_temperature(&rom_code[0])) < 40); 
+ printf("Sample Temp = 40.0 C");
+ while ((temp = ds18b20_temperature(&rom_code[0])) < 45); 
+ printf("Sample Temp = 45.0 C");
+  
+ while ((temp = ds18b20_temperature(&rom_code[0])) < 50);
+ 
+ while (1){  
+ int i;
+  
  number++;
+ 
  temp = 10 * ask_temp(&rom_code[0]);
  adc=0;
- for (i=0; i<ADC_SAMPLES; i++){adc += read_adc(0); delay_us(20);}
+ for (i=0; i<ADC_SAMPLES; i++) adc += read_adc(0);
  adc/=ADC_SAMPLES;
  
      if((adc > 700) || (temp > 800)) {
@@ -142,12 +153,9 @@ ask_temp(&rom_code[0]); //получаем первое значение температуры, чтобы первый зап
       }
      }
  printf("1)Numb 2)Temp 3)Visc :   %2u    %u,%u    %u", number, temp/10, temp%10, adc);
-   if ((temp > 900) || (adc > 1020)) {
-    //RELAY_1_OFF;
-    //RELAY_2_OFF;
-    delay_ms(1000);
-    if (temp > 900) printf("1)Numb 2)Temp 3)Visc :   %2u    00    %u", number, adc);
-    if (adc > 1020) printf("1)Numb 2)Temp 3)Visc :   %2u    %u,%u    00", number, temp/10, temp%10);
+   if (temp > 900) {
+    printf("Measure Finished");
+    
     while(1){
         BEEP=1;
         delay_ms(1000);
